@@ -184,6 +184,9 @@ inline void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
 void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
 						 thrdpool_t *pool)
 {
+	// task is allocated in stack.
+	// buf can be any type, e.g., ExecSessionEntry*, other than __thrdpool_task_entry*,
+	//   as long as its size >= __thrdpool_task_entry.
 	((struct __thrdpool_task_entry *)buf)->task = *task;
 	msgqueue_put(buf, pool->msgqueue);
 }

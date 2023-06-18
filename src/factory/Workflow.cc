@@ -119,6 +119,7 @@ SubTask *SeriesWork::pop()
 	if (!canceled)
 		return task;
 
+	// cancel means remove all tasks from the series and won't do them.
 	while (task)
 	{
 		delete task;

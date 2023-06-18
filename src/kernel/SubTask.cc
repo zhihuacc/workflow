@@ -26,10 +26,15 @@ void SubTask::subtask_done()
 	while (1)
 	{
 		parent = cur->parent;
+		// done() calls callback and returns next task in the series.
+		// The returned task may be one added in the series by the callback of the preivous task.
 		cur = cur->done();
 		if (cur)
 		{
+			// NOTE: why need set parent even it's from the same series ?
 			cur->parent = parent;
+			// This task is poped from the series after the previous one is finished. So this task and its callback will be finished after,
+			//   no matter which thread will run them. This ensure tasks are executed in sequential order.
 			cur->dispatch();
 		}
 		else if (parent)
