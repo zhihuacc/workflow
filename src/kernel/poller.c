@@ -148,6 +148,22 @@ static inline int __poller_set_timerfd(int fd, const struct timespec *abstime,
 	return timerfd_settime(fd, TFD_TIMER_ABSTIME, &timer, NULL);
 }
 
+/*
+Linux
+
+typedef union epoll_data {
+    void    *ptr;
+    int      fd;
+    uint32_t u32;
+    uint64_t u64;
+} epoll_data_t;
+
+struct epoll_event {
+    uint32_t     events;    // Epoll events 
+    epoll_data_t data;      // User data variable
+};
+*/
+
 typedef struct epoll_event __poller_event_t;
 
 static inline int __poller_wait(__poller_event_t *events, int maxevents,
@@ -1023,15 +1039,19 @@ static void *__poller_thread_routine(void *arg)
 		has_pipe_event = 0;
 		for (i = 0; i < nevents; i++)
 		{
+			// NOTE: the same node obj as in poller->nodes ?
+			// 'events' is filled by syscall epoll_wait, how it can contain __poller_node which is user-defined type.
 			node = (struct __poller_node *)__poller_event_data(&events[i]);
 			if (node > (struct __poller_node *)1)
 			{
 				switch (node->data.operation)
 				{
 				case PD_OP_READ:
+					// Read data from sock to poller->buf, and call poller->cb()
 					__poller_handle_read(node, poller);
 					break;
 				case PD_OP_WRITE:
+					// Write data from node->data to sock, and call poller->cb()
 					__poller_handle_write(node, poller);
 					break;
 				case PD_OP_LISTEN:
@@ -1314,6 +1334,8 @@ int poller_add(const struct poller_data *data, int timeout, poller_t *poller)
 		return -1;
 	}
 
+
+	// Set event types in 'event', e.g., EPOLLIN/EPOLLOUT which are to be monitored by pollers, according to 'data'
 	need_res = __poller_data_get_event(&event, data);
 	if (need_res < 0)
 		return -1;
@@ -1337,8 +1359,11 @@ int poller_add(const struct poller_data *data, int timeout, poller_t *poller)
 			__poller_node_set_timeout(timeout, node);
 
 		pthread_mutex_lock(&poller->mutex);
+		// 'nodes' is long enough to hold one node for each possible sock fd.
+		// And all pollers share the same 'nodes' array.
 		if (!poller->nodes[data->fd])
 		{
+			// Set epoll_event.data.ptr to 'node'.
 			if (__poller_add_fd(data->fd, event, node, poller) >= 0)
 			{
 				if (timeout >= 0)

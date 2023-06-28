@@ -27,6 +27,7 @@ extern void __poller_destroy(poller_t *);
 static int __mpoller_create(const struct poller_params *params,
 							mpoller_t *mpoller)
 {
+	// All pollers share the same nodes_buf
 	void **nodes_buf = (void **)calloc(params->max_open_files, sizeof (void *));
 	unsigned int i;
 
@@ -62,6 +63,8 @@ mpoller_t *mpoller_create(const struct poller_params *params, size_t nthreads)
 	if (nthreads == 0)
 		nthreads = 1;
 
+	// offsetof returns the offset of 'poller' in mpoller_t,
+	// so the 2nd term in 'size' is for extra space of a variabl-length array, starting from 'poller'
 	size = offsetof(mpoller_t, poller) + nthreads * sizeof (void *);
 	mpoller = (mpoller_t *)malloc(size);
 	if (mpoller)

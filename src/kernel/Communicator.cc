@@ -1489,6 +1489,7 @@ struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 	int sockfd;
 	int ret;
 
+	// Basically, it creates a new sock fd.
 	sockfd = this->nonblock_connect(target);
 	if (sockfd >= 0)
 	{
@@ -1498,6 +1499,7 @@ struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 			ret = pthread_mutex_init(&entry->mutex, NULL);
 			if (ret == 0)
 			{
+				// NOTE: what purpose is ths conn for ? It's a obj of CommConnection, but this class does nothing.
 				entry->conn = target->new_connection(sockfd);
 				if (entry->conn)
 				{
@@ -1585,6 +1587,7 @@ int Communicator::request_new_conn(CommSession *session, CommTarget *target)
 	struct poller_data data;
 	int timeout;
 
+	// Basically, it creates a sock fd for 'target'
 	entry = this->launch_conn(session, target);
 	if (entry)
 	{
@@ -1595,6 +1598,7 @@ int Communicator::request_new_conn(CommSession *session, CommTarget *target)
 		data.ssl = NULL;
 		data.context = entry;
 		timeout = session->target->connect_timeout;
+		// Basically, add this sock to one of the pollers so that it can be monitored.
 		if (mpoller_add(&data, timeout, this->mpoller) >= 0)
 			return 0;
 
@@ -1618,8 +1622,10 @@ int Communicator::request(CommSession *session, CommTarget *target)
 	session->target = target;
 	session->out = NULL;
 	session->in = NULL;
+	// NOTE
 	if (this->request_idle_conn(session, target) < 0)
 	{
+		// Basically create and add new sock fd in one epoller.
 		if (this->request_new_conn(session, target) < 0)
 		{
 			session->conn = NULL;

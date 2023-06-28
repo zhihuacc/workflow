@@ -173,6 +173,7 @@ int WFServerBase::start(const struct sockaddr *bind_addr, socklen_t addrlen,
 
 	if (this->init(bind_addr, addrlen, cert_file, key_file) >= 0)
 	{
+		// Create listen socket, and add the socket in one poller
 		if (this->scheduler->bind(this) >= 0)
 			return 0;
 
