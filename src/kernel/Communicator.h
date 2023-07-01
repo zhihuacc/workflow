@@ -36,6 +36,7 @@ protected:
 	friend class Communicator;
 };
 
+// Basically CommTarget is a wrapper of struct sockaddr, with additional info, e.g., timeout
 class CommTarget
 {
 public:

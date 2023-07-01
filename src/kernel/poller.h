@@ -71,6 +71,7 @@ struct poller_data
 	};
 };
 
+// poller_node shares the same first 3 fields with poller_result
 struct poller_result
 {
 #define PR_ST_SUCCESS		0

@@ -60,6 +60,7 @@ struct __poller_node
 	char removed;
 	int event;
 	struct timespec timeout;
+	// NOTE: what's this for ?
 	struct __poller_node *res;
 };
 
@@ -587,6 +588,7 @@ static void __poller_handle_write(struct __poller_node *node,
 static void __poller_handle_listen(struct __poller_node *node,
 								   poller_t *poller)
 {
+	// If it's a LISTEN event, 'node->res' must be non-empty, which is allocated in poller_add()
 	struct __poller_node *res = node->res;
 	struct sockaddr_storage ss;
 	struct sockaddr *addr = (struct sockaddr *)&ss;
@@ -594,12 +596,17 @@ static void __poller_handle_listen(struct __poller_node *node,
 	void *result;
 	int sockfd;
 
+
+	// Normally, this loop will accept and create connection at the 1st iteration.
+	// The loop will break and the function call return at the second iteration.
 	while (1)
 	{
 		addrlen = sizeof (struct sockaddr_storage);
+		// Accept incoming conn request and create a sock for it.
 		sockfd = accept(node->data.fd, addr, &addrlen);
 		if (sockfd < 0)
 		{
+			// if no coming conn requests, this call will return immediately
 			if (errno == EAGAIN || errno == EMFILE || errno == ENFILE)
 				return;
 			else if (errno == ECONNABORTED)
@@ -608,6 +615,9 @@ static void __poller_handle_listen(struct __poller_node *node,
 				break;
 		}
 
+		// 'data.accept' points to Communicator::accept().
+		// 'result' is CommServiceTarget*,and CommServiceTarget is a derived from CommTarget.
+		// CommTarget is basically a wrapper of struct sockaddr, which contains address corresponding to the new connection.
 		result = node->data.accept(addr, addrlen, sockfd, node->data.context);
 		if (!result)
 			break;
@@ -616,6 +626,10 @@ static void __poller_handle_listen(struct __poller_node *node,
 		res->data.result = result;
 		res->error = 0;
 		res->state = PR_ST_SUCCESS;
+		// This 'cb' points to Communicator::callback() which basically does msgqueue_put().
+		// 'res' is passed to consumers by msgqueue_put(), so a new obj need be allocated for 'node->res' later.
+		// poller->ctx here is a msgqueue_t which is created in Communicator::create_poller().
+		// poller_result and poller_node share the same first 3 fields, i.e., int state, int error, poller_data data
 		poller->cb((struct poller_result *)res, poller->ctx);
 
 		res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
@@ -624,6 +638,9 @@ static void __poller_handle_listen(struct __poller_node *node,
 			break;
 	}
 
+	// Some issue happens and it cannot be fixed. Then clear the node by
+	//   setting the corresponding pointer in poller->nodes to NULL,
+	//   and removing the listening sock from 'poller'
 	if (__poller_remove_node(node, poller))
 		return;
 
@@ -1039,8 +1056,7 @@ static void *__poller_thread_routine(void *arg)
 		has_pipe_event = 0;
 		for (i = 0; i < nevents; i++)
 		{
-			// NOTE: the same node obj as in poller->nodes ?
-			// 'events' is filled by syscall epoll_wait, how it can contain __poller_node which is user-defined type.
+			// 'node' here is the same node obj as in poller->nodes
 			node = (struct __poller_node *)__poller_event_data(&events[i]);
 			if (node > (struct __poller_node *)1)
 			{
@@ -1055,9 +1071,11 @@ static void *__poller_thread_routine(void *arg)
 					__poller_handle_write(node, poller);
 					break;
 				case PD_OP_LISTEN:
+					// Handle new conn request coming to the listening sock.
 					__poller_handle_listen(node, poller);
 					break;
 				case PD_OP_CONNECT:
+					// NOTE: what's 'connect' for a server ?
 					__poller_handle_connect(node, poller);
 					break;
 				case PD_OP_SSL_ACCEPT:
@@ -1335,7 +1353,8 @@ int poller_add(const struct poller_data *data, int timeout, poller_t *poller)
 	}
 
 
-	// Set event types in 'event', e.g., EPOLLIN/EPOLLOUT which are to be monitored by pollers, according to 'data'
+	// 1) Set event types in 'event', e.g., EPOLLIN/EPOLLOUT which are to be monitored by pollers, according to 'data'
+	// 2) Check if it needs alloc res for 'node->res'. E.g., if it's a LISTEN event, it needs 'res'.
 	need_res = __poller_data_get_event(&event, data);
 	if (need_res < 0)
 		return -1;

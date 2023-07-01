@@ -113,6 +113,7 @@ int main(int argc, char *argv[])
 
 	WFHttpServer server(process);
 	port = atoi(argv[1]);
+	// start() creates a listen sock on 'port', and add it in one poller.
 	if (server.start(port) == 0)
 	{
 		wait_group.wait();
