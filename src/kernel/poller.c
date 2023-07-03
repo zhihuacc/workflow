@@ -376,12 +376,14 @@ static int __poller_append_message(const void *buf, size_t *n,
 	else
 		res = node->res;
 
+	// ret can be -1, 0, 1
 	ret = msg->append(buf, n, msg);
 	if (ret > 0)
 	{
 		res->data = node->data;
 		res->error = 0;
 		res->state = PR_ST_SUCCESS;
+		// Send message 
 		poller->cb((struct poller_result *)res, poller->ctx);
 
 		node->data.message = NULL;
@@ -463,12 +465,15 @@ static void __poller_handle_read(struct __poller_node *node,
 		do
 		{
 			n = nleft;
+			// In __poller_append_message(), data in poller->buf will be passed via msgqueue_t.
+			// NOTE: if this appending fails, why bother continuing appending ?
 			if (__poller_append_message(p, &n, node, poller) >= 0)
 			{
 				nleft -= n;
 				p += n;
 			}
 			else
+				// NOTE: why -1 here ?
 				nleft = -1;
 		} while (nleft > 0);
 
@@ -597,16 +602,18 @@ static void __poller_handle_listen(struct __poller_node *node,
 	int sockfd;
 
 
-	// Normally, this loop will accept and create connection at the 1st iteration.
-	// The loop will break and the function call return at the second iteration.
+	// Normally, this loop will accept and create socks for all present connections at the first few iterations.
+	// And this loop will break and current function call will return with errno==EAGAIN at the last iteration.
 	while (1)
 	{
 		addrlen = sizeof (struct sockaddr_storage);
-		// Accept incoming conn request and create a sock for it.
+		// Accept present connections and create sockets for them.
+		// This call will not block.
 		sockfd = accept(node->data.fd, addr, &addrlen);
 		if (sockfd < 0)
 		{
-			// if no coming conn requests, this call will return immediately
+			// if no more present connections, current call will return immediately
+			// EWOULDBLOCK is defined as EAGAIN
 			if (errno == EAGAIN || errno == EMFILE || errno == ENFILE)
 				return;
 			else if (errno == ECONNABORTED)
@@ -626,10 +633,12 @@ static void __poller_handle_listen(struct __poller_node *node,
 		res->data.result = result;
 		res->error = 0;
 		res->state = PR_ST_SUCCESS;
-		// This 'cb' points to Communicator::callback() which basically does msgqueue_put().
-		// 'res' is passed to consumers by msgqueue_put(), so a new obj need be allocated for 'node->res' later.
-		// poller->ctx here is a msgqueue_t which is created in Communicator::create_poller().
-		// poller_result and poller_node share the same first 3 fields, i.e., int state, int error, poller_data data
+		// 1) This 'cb' points to Communicator::callback() which basically does msgqueue_put().
+		//    'res' is passed to consumers by msgqueue_put(), so a new obj need be allocated for 'node->res' later.
+		//    poller->ctx here is a msgqueue_t which is created in Communicator::create_poller().
+		//    struct poller_result and struct poller_node share the same first 3 fields, i.e., int state, int error, poller_data data.
+		// 2) 'res' is passed to handle_thread_routine() --> handle_listen_result() via msgqueue_t.
+		//    In handle_listen_result(), the new sock is added in one poller to mointor epoll events, e.g., PD_OP_READ
 		poller->cb((struct poller_result *)res, poller->ctx);
 
 		res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
@@ -647,6 +656,7 @@ static void __poller_handle_listen(struct __poller_node *node,
 	node->error = errno;
 	node->state = PR_ST_ERROR;
 	free(node->res);
+	// NOTE: why call this callback to handle 'node', instead of handle it here directly ?
 	poller->cb((struct poller_result *)node, poller->ctx);
 }
 

@@ -576,6 +576,7 @@ void http_parser_init(int is_resp, http_parser_t *parser)
 	parser->is_resp = is_resp;
 }
 
+// NOTE: what's the difference btw ret==0 and 1 ?
 int http_parser_append_message(const void *buf, size_t *n,
 							   http_parser_t *parser)
 {
@@ -631,7 +632,7 @@ int http_parser_append_message(const void *buf, size_t *n,
 			parser->complete = 1;
 			return 1;
 		}
-
+		// NOTE: what's the meaning by return 0 ?
 		return 0;
 	}
 

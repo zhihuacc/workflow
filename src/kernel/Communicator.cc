@@ -607,6 +607,7 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 	case PR_ST_SUCCESS:
 		session = entry->session;
 		state = CS_STATE_TOREPLY;
+		// NOTE: Why need mutex for each target ?
 		pthread_mutex_lock(&target->mutex);
 		if (entry->state == CONN_STATE_SUCCESS)
 		{
@@ -1193,6 +1194,7 @@ int Communicator::append_request(const void *buf, size_t *size,
 	int timeout;
 	int ret;
 
+	// ret may be -1, 0, 1
 	ret = in->append(buf, size);
 	if (ret > 0)
 	{
@@ -1294,6 +1296,7 @@ poller_message_t *Communicator::create_request(void *context)
 	session->in = session->message_in();
 	if (session->in)
 	{
+		// NOTE: how can do this assignment ? 'in' is type CommMessageIn* and is derived from poller_message_t.
 		session->in->poller_message_t::append = Communicator::append_request;
 		session->in->entry = entry;
 	}
@@ -1349,6 +1352,8 @@ void *Communicator::accept(const struct sockaddr *addr, socklen_t addrlen,
 
 	if (target)
 	{
+		// Calls CommTarget::init() since CommServiceTarget is derived from CommTarget.
+		// And CommTarget is basically a wrapper of sockaddr
 		if (target->init(addr, addrlen, 0, service->response_timeout) >= 0)
 		{
 			service->incref();
