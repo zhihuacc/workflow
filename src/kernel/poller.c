@@ -353,6 +353,7 @@ static int __poller_append_message(const void *buf, size_t *n,
 								   struct __poller_node *node,
 								   poller_t *poller)
 {
+	// poller_message_t is a variable length struct.
 	poller_message_t *msg = node->data.message;
 	struct __poller_node *res;
 	int ret;
@@ -376,14 +377,15 @@ static int __poller_append_message(const void *buf, size_t *n,
 	else
 		res = node->res;
 
-	// ret can be -1, 0, 1
+	// ret can be -1, 0, 1 etc.
 	ret = msg->append(buf, n, msg);
 	if (ret > 0)
 	{
+		// node->data.message is passed to res->data.
 		res->data = node->data;
 		res->error = 0;
 		res->state = PR_ST_SUCCESS;
-		// Send message 
+		// Send message via msgqueue_t.
 		poller->cb((struct poller_result *)res, poller->ctx);
 
 		node->data.message = NULL;
@@ -465,15 +467,14 @@ static void __poller_handle_read(struct __poller_node *node,
 		do
 		{
 			n = nleft;
-			// In __poller_append_message(), data in poller->buf will be passed via msgqueue_t.
-			// NOTE: if this appending fails, why bother continuing appending ?
+			// data in poller->buf will be passed via msgqueue_t.
 			if (__poller_append_message(p, &n, node, poller) >= 0)
 			{
 				nleft -= n;
 				p += n;
 			}
 			else
-				// NOTE: why -1 here ?
+				// Last appending failed, so try appending the buf without the last byte, i.e., Append as much as possible.
 				nleft = -1;
 		} while (nleft > 0);
 

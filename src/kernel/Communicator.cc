@@ -663,6 +663,8 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 
 	if (entry)
 	{
+		// session points to a CommRequest which is derived from CommSession and SubTask.
+		// handle() will call subtask_done() which in turn calls callback().
 		if (session)
 			session->handle(state, res->error);
 
@@ -1194,7 +1196,7 @@ int Communicator::append_request(const void *buf, size_t *size,
 	int timeout;
 	int ret;
 
-	// ret may be -1, 0, 1
+	// ret may be -1, 0, 1 etc.
 	ret = in->append(buf, size);
 	if (ret > 0)
 	{
