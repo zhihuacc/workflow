@@ -204,7 +204,8 @@ protected:
 			if (this->get_last_task() == this->task)
 				this->unset_last_task();
 		}
-
+		
+		// WFServerTask's processor as a SubTask is added in the same series as WFServerTask.
 		Series(WFServerTask<REQ, RESP> *task) :
 			SeriesWork(&task->processor, nullptr)
 		{
@@ -239,7 +240,10 @@ void WFServerTask<REQ, RESP>::handle(int state, int error)
 	{
 		this->state = WFT_STATE_TOREPLY;
 		this->target = this->get_target();
+		// A SubTask has a member 'pointer' pointing to the SeriesWork it's passed in.
+		// Actually series_of returns the 'pointer'. So A series obj will be deleted by its tasks.
 		new Series(this);
+		// Here user-defined process is called.
 		this->processor.dispatch();
 	}
 	else if (this->state == WFT_STATE_TOREPLY)

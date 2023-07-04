@@ -1434,6 +1434,8 @@ int Communicator::create_poller(size_t poller_threads)
 	return -1;
 }
 
+// Commumicator is a global single instance as CommScheduler. 
+// It handles IO for all services including http, redis etc.
 int Communicator::init(size_t poller_threads, size_t handler_threads)
 {
 	if (poller_threads == 0)

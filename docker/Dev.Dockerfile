@@ -1,6 +1,7 @@
 FROM docker.io/ubuntu:20.04
 
-RUN apt-get update && apt-get install -y vim cmake g++ libssl-dev
+RUN apt-get update && apt-get install -y vim cmake g++ gdb  # utlities for dev and debug
+RUN apt-get install -y libssl-dev
 
 WORKDIR /workflow
 

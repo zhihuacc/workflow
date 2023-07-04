@@ -32,7 +32,7 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
  * This is only for internal list manipulation where we know
  * the prev/next entries already!
  * 
- * It inserts node btw prev and next, i.e, ...<-->prev<-->node<-->next<-->...
+ * It inserts 'node' btw 'prev' and 'next', i.e, ...<-->prev<-->node<-->next<-->...
  */
 static inline void __list_add(struct list_head *node,
 							  struct list_head *prev,

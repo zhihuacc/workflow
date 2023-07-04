@@ -76,6 +76,7 @@ public:
 	int get_error() const { return this->error; }
 
 public:
+	// Not every SubTask has a callback. WFServerTask has no callback, but a processor.
 	void set_callback(std::function<void (WFThreadTask<INPUT, OUTPUT> *)> cb)
 	{
 		this->callback = std::move(cb);
