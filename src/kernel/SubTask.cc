@@ -26,9 +26,11 @@ void SubTask::subtask_done()
 	while (1)
 	{
 		parent = cur->parent;
-		// done() calls callback and returns next task in the series.
-		// The returned task may be one added in the series by the callback of the preivous task.
+		// done() usually calls callback. But it's not always the case, becas some SubTask has no callback, e.g., Processor in WFServerTask.
+		// done() always pops and returns next task in the series.
+		// The returned task may be one added in the series by the callback of the preivous tasks.
 		cur = cur->done();
+		// cur now is the next task after current one in the series.
 		if (cur)
 		{
 			// NOTE: why need set parent even it's from the same series ?

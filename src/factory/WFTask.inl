@@ -140,6 +140,9 @@ protected:
 		{
 			/* Enable get_connection() again if the reply() call is success. */
 			this->processor.task = this;
+			// In reply(), it will call comm->reply() --> comm->reply_idle_conn() --> session->handle(). Here session is the cur WFServerTask,
+			//   so the WFServerTask::handle() is called. In turn, subtask_done() --> done() --> callback().
+			// The reply_idel_conn() sends replies to clients. I.e., the WFServerTask's callback is called after replies are sent.
 			if (this->scheduler->reply(this) >= 0)
 				return;
 
@@ -176,6 +179,7 @@ protected:
 				  std::function<void (WFNetworkTask<REQ, RESP> *)>& proc) :
 			process(proc)
 		{
+			// Processor is a SubTask, but it has no callback.
 			this->task = task;
 		}
 
@@ -183,11 +187,13 @@ protected:
 		{
 			this->process(this->task);
 			this->task = NULL;	/* As a flag. get_conneciton() disabled. */
+			// All SubTask share the same subtask_done(), but maybe different done().
 			this->subtask_done();
 		}
 
 		virtual SubTask *done()
 		{
+			// Processor has no callback, so not call it, and just pop next SubTask.
 			return series_of(this)->pop();
 		}
 
@@ -205,7 +211,7 @@ protected:
 				this->unset_last_task();
 		}
 		
-		// WFServerTask's processor as a SubTask is added in the same series as WFServerTask.
+		// The processor in a WFServerTask is added as a SubTask in the same series as the WFServerTask itself.
 		Series(WFServerTask<REQ, RESP> *task) :
 			SeriesWork(&task->processor, nullptr)
 		{
