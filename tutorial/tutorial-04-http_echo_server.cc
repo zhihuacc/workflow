@@ -30,6 +30,7 @@
 #include "workflow/WFServer.h"
 #include "workflow/WFHttpServer.h"
 #include "workflow/WFFacilities.h"
+#include "workflow/WFGlobal.h"
 
 void process(WFHttpTask *server_task)
 {
@@ -110,6 +111,9 @@ int main(int argc, char *argv[])
 	}
 
 	signal(SIGINT, sig_handler);
+
+	WFGlobalSettings settings{.poller_threads=1, .handler_threads=1};
+	WFGlobal::set_global_settings(&settings);
 
 	WFHttpServer server(process);
 	port = atoi(argv[1]);
