@@ -142,7 +142,7 @@ protected:
 			this->processor.task = this;
 			// In reply(), it will call comm->reply() --> comm->reply_idle_conn() --> session->handle(). Here session is the cur WFServerTask,
 			//   so the WFServerTask::handle() is called. In turn, subtask_done() --> done() --> callback().
-			// The reply_idel_conn() sends replies to clients. I.e., the WFServerTask's callback is called after replies are sent.
+			// The reply_idle_conn() sends replies to clients, i.e., the WFServerTask's callback is called after replies are sent.
 			if (this->scheduler->reply(this) >= 0)
 				return;
 
@@ -239,6 +239,7 @@ protected:
 	virtual ~WFServerTask() { }
 };
 
+// This handle() is to implement pure virtual CommSession::handle().
 template<class REQ, class RESP>
 void WFServerTask<REQ, RESP>::handle(int state, int error)
 {
