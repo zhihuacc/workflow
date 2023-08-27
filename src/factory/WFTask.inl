@@ -150,6 +150,8 @@ protected:
 			this->error = errno;
 			this->processor.task = NULL;
 		}
+		else
+			this->scheduler->shutdown(this);
 
 		this->subtask_done();
 	}

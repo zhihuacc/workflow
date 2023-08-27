@@ -340,8 +340,11 @@ CommSession::~CommSession()
 		{
 			pos = target->idle_list.next;
 			entry = list_entry(pos, struct CommConnEntry, list);
+			list_del(pos);
+
 			errno_bak = errno;
 			mpoller_del(entry->sockfd, entry->mpoller);
+			entry->state = CONN_STATE_CLOSING;
 			errno = errno_bak;
 		}
 
@@ -747,7 +750,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 	{
 		if (session)
 		{
-			target->release(entry->state == CONN_STATE_IDLE);
+			target->release();
 			session->handle(state, res->error);
 		}
 
@@ -871,7 +874,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 	case PR_ST_STOPPED:
 			state = CS_STATE_STOPPED;
 
-		entry->target->release(0);
+		entry->target->release();
 		session->handle(state, res->error);
 		pthread_mutex_lock(&entry->mutex);
 		/* do nothing */
@@ -994,7 +997,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	case PR_ST_STOPPED:
 			state = CS_STATE_STOPPED;
 
-		target->release(0);
+		target->release();
 		session->handle(state, res->error);
 		this->release_conn(entry);
 		break;
@@ -1803,6 +1806,37 @@ int Communicator::push(const void *buf, size_t size, CommSession *session)
 				ret = -1;
 			}
 		}
+	}
+	else
+	{
+		errno = ENOENT;
+		ret = -1;
+	}
+
+	pthread_mutex_unlock(&target->mutex);
+	return ret;
+}
+
+int Communicator::shutdown(CommSession *session)
+{
+	CommTarget *target = session->target;
+	struct CommConnEntry *entry;
+	int ret;
+
+	if (session->passive != 1)
+	{
+		errno = session->passive ? ENOENT : EPERM;
+		return -1;
+	}
+
+	session->passive = 2;
+	pthread_mutex_lock(&target->mutex);
+	if (!list_empty(&target->idle_list))
+	{
+		entry = list_entry(target->idle_list.next, struct CommConnEntry, list);
+		list_del(&entry->list);
+		ret = mpoller_del(entry->sockfd, entry->mpoller);
+		entry->state = CONN_STATE_CLOSING;
 	}
 	else
 	{
